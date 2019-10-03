@@ -99,7 +99,9 @@
 
             $body.append(el);
 
-            $el.wrap('<div id="' + el.id + '_wrapper" class="popup_wrapper" />');
+            if ((!$('#' + el.id + '_wrapper').length)) {
+				$el.wrap('<div id="' + el.id + '_wrapper" class="popup_wrapper" />');
+			}
 
             $wrapper = $('#' + el.id + '_wrapper');
 
@@ -161,13 +163,15 @@
                 });
 
                 // CSS vertical align helper
-                $wrapper.append('<div class="popup_align" />');
+				if (!$wrapper.has("div.popup_align").length) {
+					$wrapper.append('<div class="popup_align" />');
 
-                $('.popup_align').css({
-                    display: 'inline-block',
-                    verticalAlign: 'middle',
-                    height: '100%'
-                });
+					$('.popup_align').css({
+						display: 'inline-block',
+						verticalAlign: 'middle',
+						height: '100%'
+					});
+				}
             }
 
             // Add WAI ARIA role to announce dialog to screen readers
@@ -205,14 +209,19 @@
             } else {
 
                 // Handler: Show popup when clicked on `open` element
-                $(document).on('click.jqp', openelement, function (event) {
+				var popupClickHandler = function (event) {
                     event.preventDefault();
 
                     var ord = $(this).data('popup-ordinal');
                     setTimeout(function() { // setTimeout is to allow `close` method to finish (for issues with multiple tooltips)
                         methods.show(el, ord);
                     }, 0);
-                });
+                };
+				
+				$(document).on('click.jqp', openelement, popupClickHandler);
+
+        		$el.data('popupOpenelement', openelement);
+        		$el.data('popupClickHandler', popupClickHandler);
             }
 
             if (options.closebutton) {
@@ -225,6 +234,49 @@
                 $el.hide();
             }
         },
+		
+		/**
+		 * Destroy method
+		 * Cleans up elements and event listeners
+		 *
+		 * @param {object} el - popup instance DOM node
+		 */
+		destroy: function (el) {
+		  // Get index of popup ID inside of visiblePopupsArray
+		  var popupIdIndex = $.inArray(el.id, visiblePopupsArray);
+
+		  // If popup is not opened, ignore the rest of the function
+		  if (popupIdIndex === -1) {
+			return;
+		  }
+
+		  var $el = $(el);
+		  var options = $el.data('popupoptions');
+		  var $background = $('#' + el.id + '_background');
+		  var openelement = $el.data('popupOpenelement');
+		  var popupClickHandler = $el.data('popupClickHandler');
+		  var $wrapper = $('#' + el.id + '_wrapper');
+
+		  // remove background
+		  if ($background) {
+			$background.remove();
+		  }
+
+		  // remove click listener
+		  if (popupClickHandler) {
+			$(document).off('click', openelement, popupClickHandler);
+		  }
+
+		  // remove wrapper
+		  $wrapper.remove();
+		  $('div[id="JPO_wrapper"]')
+
+		  // remove initialization marker to allow popup to be initialize again
+		  $el.data('popup-initialized', false);
+
+		  // Remove popup from the visiblePopupsArray
+		  visiblePopupsArray.splice(popupIdIndex, 1);
+		},
 
         /**
          * Show method
